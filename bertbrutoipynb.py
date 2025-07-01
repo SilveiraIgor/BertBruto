@@ -38,16 +38,20 @@ class BertForRegression(nn.Module):
       # Concatenate the representations
       intermediate_representation1 = self.linear_layer(cls_representation1)
       intermediate_representation2 = self.linear_layer(cls_representation2)
-      intermediate_representation1 = torch.relu(intermediate_representation1)
-      intermediate_representation2 = torch.relu(intermediate_representation2) # Optional activation
+      #intermediate_representation1 = torch.relu(intermediate_representation1)
+      #intermediate_representation2 = torch.relu(intermediate_representation2) # Optional activation
       dv = intermediate_representation1 - intermediate_representation2
       output = self.regression_layer(dv)
-      return output
+      y = torch.sigmoid(output)
+      return y
 rede = BertForRegression()
 # Load the BERT tokenizer
 tokenizer = BertTokenizer.from_pretrained('neuralmind/bert-base-portuguese-cased')
 
 ds = load_dataset("kamel-usp/aes_enem_dataset", "JBCS2025")
+
+def normalizar(valor):
+  return (valor + 5) / 10
 
 def generate_training_samples(df_train):
   columns = ['essay1_text', 'essay2_text', 'label']
@@ -57,7 +61,7 @@ def generate_training_samples(df_train):
   for i in range(0, len(df_train)-2, 2):
     linha1 = df_train.iloc[i]
     linha2 = df_train.iloc[i + 1]
-    nova_linha = pd.DataFrame([{"essay1_text": linha1['essay_text'], "essay2_text": linha2['essay_text'], 'label': (linha1['grades'][0] - linha2['grades'][0])//40 }])
+    nova_linha = pd.DataFrame([{"essay1_text": linha1['essay_text'], "essay2_text": linha2['essay_text'], 'label': normalizar((linha1['grades'][0] - linha2['grades'][0])//40) }])
     df = pd.concat([df, nova_linha], ignore_index=True)
   return df
 
@@ -117,25 +121,12 @@ selecionar_aleatoriamente(ds['train'].to_pandas(), ds['test'].to_pandas().iloc[0
 
 # prompt: faça uma função que recebe uma lista de inteiros e retorna o inteiro mais frequente da lista
 
-def mais_frequente(lista_inteiros):
-  #print(lista_inteiros)
-  contagem = {}
-  for numero in lista_inteiros:
-    contagem[numero] = contagem.get(numero, 0) + 1
-
-  mais_frequente_num = None
-  max_frequencia = 0
-
-  for numero, frequencia in contagem.items():
-    if frequencia > max_frequencia:
-      max_frequencia = frequencia
-      mais_frequente_num = numero
-
-  return mais_frequente_num
+def desnormalizar(valor):
+  return 10 * valor - 5
 
 def arredondar_notas(lista_notas, referencias):
   #print(lista_notas, referencias)
-  novas = [j+i for i, j in zip(lista_notas, referencias)]
+  novas = [j+desnormalizar(i) for i, j in zip(lista_notas, referencias)]
   nota = sum(novas)/len(novas)
   return round(nota)
 
